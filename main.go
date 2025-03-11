@@ -114,7 +114,7 @@ func signalHandler(event *futures.WsLiquidationOrderEvent) {
 	if err != nil && avgPrice == 0 {
 		return
 	}
-	if origQuantity*avgPrice > 500 {
+	if origQuantity*avgPrice > 5000 {
 
 		// 取订单铺
 		book, ree := client.NewDepthService().Symbol(event.LiquidationOrder.Symbol).Limit(5).Do(context.Background())
@@ -133,6 +133,7 @@ func signalHandler(event *futures.WsLiquidationOrderEvent) {
 			positionSide = "SHORT"
 			priceGo = book.Asks[0].Price
 		}
+
 		log.Println(origQuantity*avgPrice, event.LiquidationOrder)
 
 		_, quantityGo, err := processSymbolInfo(event.LiquidationOrder.Symbol, avgPrice, 20/avgPrice)
@@ -235,7 +236,7 @@ func order(symbol string, side futures.SideType, positionSide futures.PositionSi
 		// 删除symbol
 		Osymbol = remove(Osymbol, symbol)
 	}
-	time.Sleep(60 * time.Second)
+	time.Sleep(120 * time.Second)
 	// 平掉 symbolBUY
 	if side == "BUY" {
 		side = "SELL"
@@ -266,9 +267,9 @@ func wsUserGo2() {
 							return
 						}
 						if orderStatus == 1 {
-							endPrice = endPrice * (1 + 0.00042)
+							endPrice = endPrice * (1 + 0.001)
 						} else {
-							endPrice = endPrice * (1 - 0.00042)
+							endPrice = endPrice * (1 - 0.001)
 						}
 						priceGoSub, _, err := processSymbolInfo(dataOrder.Symbol, endPrice, 0)
 						if err != nil {
