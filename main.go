@@ -236,10 +236,12 @@ func order(symbol string, side futures.SideType, positionSide futures.PositionSi
 		// 删除symbol
 		Osymbol = remove(Osymbol, symbol)
 	}
-	time.Sleep(120 * time.Second)
+	time.Sleep(300 * time.Second)
 	// 平掉 symbolBUY
 	if side == "BUY" {
 		side = "SELL"
+	} else {
+		side = "BUY"
 	}
 	_, err = client.NewCreateOrderService().Symbol(symbol).Side(side).Quantity(quantityGo).PositionSide(positionSide).Type("MARKET").Do(context.Background())
 	if err != nil {
