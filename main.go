@@ -28,6 +28,10 @@ var (
 )
 
 func init() {
+	// 打印配置信息，如果配置有问题会在这里panic
+	if config.Debug {
+		log.Println(config)
+	}
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -114,7 +118,12 @@ func signalHandler(event *futures.WsLiquidationOrderEvent) {
 	if err != nil && avgPrice == 0 {
 		return
 	}
-	if origQuantity*avgPrice > 5000 {
+
+	if config.Debug {
+		log.Println(origQuantity*avgPrice, event.LiquidationOrder)
+	}
+
+	if origQuantity*avgPrice > config.Num {
 
 		// 取订单铺
 		book, ree := client.NewDepthService().Symbol(event.LiquidationOrder.Symbol).Limit(5).Do(context.Background())
@@ -134,14 +143,11 @@ func signalHandler(event *futures.WsLiquidationOrderEvent) {
 			priceGo = book.Asks[0].Price
 		}
 
-		log.Println(origQuantity*avgPrice, event.LiquidationOrder)
-
-		_, quantityGo, err := processSymbolInfo(event.LiquidationOrder.Symbol, avgPrice, 20/avgPrice)
+		_, quantityGo, err := processSymbolInfo(event.LiquidationOrder.Symbol, avgPrice, 50/avgPrice)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-
 		go order(event.LiquidationOrder.Symbol, side, positionSide, quantityGo, priceGo)
 
 	}
@@ -221,7 +227,7 @@ func order(symbol string, side futures.SideType, positionSide futures.PositionSi
 	Osymbol = append(Osymbol, symbol)
 	log.Println(Osymbol)
 	// 延迟3秒
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second)
 	// 查看订单状态o
 	orderStatus, err := client.NewGetOrderService().Symbol(symbol).OrderID(o.OrderID).Do(context.Background())
 	if err != nil {
@@ -268,6 +274,7 @@ func wsUserGo2() {
 						if err != nil || endPrice == 0 {
 							return
 						}
+						log.Printf("开仓: %v\n", dataOrder.Symbol)
 						if orderStatus == 1 {
 							endPrice = endPrice * (1 + 0.001)
 						} else {
@@ -299,6 +306,7 @@ func wsUserGo2() {
 					if orderStatus == 2 || orderStatus == 4 {
 						// 删除symbol
 						Osymbol = remove(Osymbol, dataOrder.Symbol)
+						log.Printf("平仓: %v\n", dataOrder.Symbol)
 					}
 				}
 			}
