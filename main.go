@@ -60,7 +60,7 @@ func init() {
 	}
 	// 赛选币种
 	for _, s := range info.Symbols {
-		if s.QuoteAsset == "USDT" && s.ContractType == "PERPETUAL" && s.Status == "TRADING" {
+		if s.QuoteAsset == "USDT" && s.ContractType == "PERPETUAL" && s.Status == "TRADING" && !contains(config.Blacklist, s.BaseAsset) {
 			symbolsInfo = append(symbolsInfo, s)
 		}
 	}
@@ -76,6 +76,7 @@ func main() {
 	// 启动ws
 	go wsUserGo()
 	go wsUserGo2()
+	// go AccountTrades()
 
 	sigC := make(chan os.Signal, 1)
 	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
@@ -143,7 +144,7 @@ func signalHandler(event *futures.WsLiquidationOrderEvent) {
 			priceGo = book.Asks[0].Price
 		}
 
-		_, quantityGo, err := processSymbolInfo(event.LiquidationOrder.Symbol, avgPrice, 50/avgPrice)
+		_, quantityGo, err := processSymbolInfo(event.LiquidationOrder.Symbol, avgPrice, config.Quantity/avgPrice)
 		if err != nil {
 			log.Println(err)
 			return
@@ -227,7 +228,7 @@ func order(symbol string, side futures.SideType, positionSide futures.PositionSi
 	Osymbol = append(Osymbol, symbol)
 	log.Println(Osymbol)
 	// 延迟3秒
-	time.Sleep(1 * time.Second)
+	time.Sleep(time.Duration(config.TimeA) * time.Second)
 	// 查看订单状态o
 	orderStatus, err := client.NewGetOrderService().Symbol(symbol).OrderID(o.OrderID).Do(context.Background())
 	if err != nil {
@@ -242,18 +243,39 @@ func order(symbol string, side futures.SideType, positionSide futures.PositionSi
 		// 删除symbol
 		Osymbol = remove(Osymbol, symbol)
 	}
-	time.Sleep(300 * time.Second)
+	time.Sleep(time.Duration(config.TimeB) * time.Second)
 	// 平掉 symbolBUY
 	if side == "BUY" {
 		side = "SELL"
 	} else {
 		side = "BUY"
 	}
-	_, err = client.NewCreateOrderService().Symbol(symbol).Side(side).Quantity(quantityGo).PositionSide(positionSide).Type("MARKET").Do(context.Background())
+	go POrder(symbol, side, quantityGo, positionSide)
+}
+
+func POrder(symbol string, side futures.SideType, quantityGo string, positionSide futures.PositionSideType) {
+	positions, err := client.NewGetPositionRiskService().Symbol(symbol).Do(context.Background())
 	if err != nil {
-		log.Println(err)
 		return
 	}
+	for _, pos := range positions {
+		PositionAmt, err := strconv.ParseFloat(pos.PositionAmt, 64)
+		if err != nil {
+			return
+		}
+		if pos.Symbol == symbol && PositionAmt != 0 {
+			// 说明该币种当前有持仓
+			log.Printf("计划平仓: %v\n", symbol)
+			_, err = client.NewCreateOrderService().Symbol(symbol).Side(side).Quantity(quantityGo).PositionSide(positionSide).Type("MARKET").Do(context.Background())
+			if err != nil {
+				log.Println(err)
+				time.Sleep(1 * time.Second)
+				go POrder(symbol, side, quantityGo, positionSide)
+				return
+			}
+		}
+	}
+
 }
 
 func wsUserGo2() {
