@@ -74,9 +74,9 @@ func init() {
 
 func main() {
 	// 启动ws
-	go wsUserGo()
-	go wsUserGo2()
-	// go AccountTrades()
+	//go wsUserGo()
+	//go wsUserGo2()
+	go AccountTrades()
 
 	sigC := make(chan os.Signal, 1)
 	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
@@ -136,7 +136,7 @@ func signalHandler(event *futures.WsLiquidationOrderEvent) {
 		var (
 			side         futures.SideType         = "BUY"
 			positionSide futures.PositionSideType = "LONG"
-			priceGo      string                   = book.Bids[0].Price
+			priceGo                               = book.Bids[0].Price
 		)
 		if event.LiquidationOrder.Side == "BUY" {
 			side = "SELL"

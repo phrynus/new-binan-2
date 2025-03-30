@@ -135,7 +135,7 @@ func exportToCSV(trades []*futures.AccountTrade, filename string) error {
 }
 
 func AccountTrades() {
-	client := futures.NewClient(client.APIKey, client.SecretKey)
+	client := futures.NewClient(config.API, config.Secret)
 
 	// 获取交易记录
 	trades, err := getAccountTrades(client, 1) // 获取最近 1 天的交易记录
